@@ -1,0 +1,19 @@
+{
+  "builds": [
+    {
+      "src": "myslack-web/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "myslack-web/dist/assets/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "myslack-web/dist/index.html"
+    }
+  ]
+}

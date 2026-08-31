@@ -12,12 +12,16 @@ echo 1. Re-building fresh production bundle...
 call npm run build
 
 echo.
-echo 2. Pushing production update to Vercel...
+echo 2. Connecting to Vercel...
 echo -------------------------------------------------------------------
-echo  Updating your existing live Vercel URL... Please wait.
+echo  If prompted, select "Continue with GitHub / Email" to log in.
 echo -------------------------------------------------------------------
 echo.
 
+npx vercel login
+
+echo.
+echo 3. Deploying updated site to Vercel Production...
 npx vercel --prod
 
 echo.

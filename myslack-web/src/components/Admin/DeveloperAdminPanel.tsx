@@ -20,6 +20,7 @@ import {
   ChevronUp,
   Building,
   Edit,
+  Trash2,
 } from 'lucide-react';
 import type { UserRole, UserPermissions } from '../../types';
 
@@ -35,6 +36,7 @@ export const DeveloperAdminPanel: React.FC = () => {
     updateRoleCategoryPermissions,
     projects,
     createProject,
+    deleteProject,
     assignUserToProject,
     removeUserFromProject,
     securityAlerts,
@@ -124,7 +126,7 @@ export const DeveloperAdminPanel: React.FC = () => {
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Rename company, delegate authorities, confirm signups & view top 5 recent team projects
+                Rename company, delegate authorities, confirm signups & manage team projects
               </p>
             </div>
           </div>
@@ -189,7 +191,7 @@ export const DeveloperAdminPanel: React.FC = () => {
             }`}
           >
             <FolderPlus className="w-4 h-4" />
-            <span>Recent Team Projects (Top 5)</span>
+            <span>Recent Team Projects ({recentProjects.length})</span>
           </button>
 
           <button
@@ -543,79 +545,99 @@ export const DeveloperAdminPanel: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-extrabold uppercase tracking-wider text-cyan-400 flex items-center space-x-2">
                     <Briefcase className="w-4 h-4" />
-                    <span>Recent Team Projects (Displaying Top {recentProjects.length} Recent)</span>
+                    <span>Recent Team Projects (Displaying {recentProjects.length})</span>
                   </h4>
                   <span className="text-[11px] text-slate-400 font-mono">Total Projects: {projects.length}</span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {recentProjects.map((proj) => {
-                    const assignedMembers = approvedUsers.filter((u) => proj.assignedUserIds?.includes(u.id));
-                    const unassignedMembers = approvedUsers.filter((u) => !proj.assignedUserIds?.includes(u.id));
+                {recentProjects.length === 0 ? (
+                  <div className="p-10 text-center rounded-2xl bg-slate-950/40 border border-slate-800 space-y-2 text-slate-400">
+                    <Briefcase className="w-8 h-8 mx-auto text-slate-600 opacity-60" />
+                    <p className="text-sm font-semibold text-slate-300">No active projects created yet</p>
+                    <p className="text-xs opacity-70">
+                      Fill out the form above to create your first team project and assign members.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {recentProjects.map((proj) => {
+                      const assignedMembers = approvedUsers.filter((u) => proj.assignedUserIds?.includes(u.id));
+                      const unassignedMembers = approvedUsers.filter((u) => !proj.assignedUserIds?.includes(u.id));
 
-                    return (
-                      <div key={proj.id} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-extrabold text-white text-base flex items-center space-x-2">
-                              <Briefcase className="w-4 h-4 text-indigo-400" />
-                              <span>{proj.name}</span>
-                            </h4>
-                            <span className="text-[10px] text-slate-500 font-mono">Created {proj.createdAt}</span>
-                          </div>
-                          <p className="text-xs text-slate-400 mt-1">{proj.description}</p>
-                        </div>
-
-                        {/* Assigned Members */}
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-slate-300">
-                            Assigned Members ({assignedMembers.length}):
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {assignedMembers.map((m) => (
-                              <span
-                                key={m.id}
-                                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200"
-                              >
-                                <img src={m.avatarUrl} alt={m.displayName} className="w-4 h-4 rounded-full" />
-                                <span>{m.displayName} ({m.role})</span>
+                      return (
+                        <div key={proj.id} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-extrabold text-white text-base flex items-center space-x-2">
+                                <Briefcase className="w-4 h-4 text-indigo-400" />
+                                <span>{proj.name}</span>
+                              </h4>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-[10px] text-slate-500 font-mono">{proj.createdAt}</span>
                                 <button
                                   type="button"
-                                  onClick={() => removeUserFromProject(proj.id, m.id)}
-                                  className="text-slate-500 hover:text-rose-400 ml-1"
+                                  onClick={() => deleteProject(proj.id)}
+                                  title="Delete Project"
+                                  className="p-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/30 text-rose-400 border border-rose-500/20 transition-all"
                                 >
-                                  <UserMinus className="w-3 h-3" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
-                              </span>
-                            ))}
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">{proj.description}</p>
                           </div>
-                        </div>
 
-                        {/* Add Unassigned Members Dropdown */}
-                        {unassignedMembers.length > 0 && (
-                          <div className="pt-2 border-t border-slate-900 flex items-center space-x-2">
-                            <select
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  assignUserToProject(proj.id, e.target.value);
-                                  e.target.value = '';
-                                }
-                              }}
-                              className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none"
-                            >
-                              <option value="">+ Assign Team Member to {proj.name}...</option>
-                              {unassignedMembers.map((u) => (
-                                <option key={u.id} value={u.id}>
-                                  {u.displayName} ({u.role})
-                                </option>
+                          {/* Assigned Members */}
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-slate-300">
+                              Assigned Members ({assignedMembers.length}):
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {assignedMembers.map((m) => (
+                                <span
+                                  key={m.id}
+                                  className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200"
+                                >
+                                  <img src={m.avatarUrl} alt={m.displayName} className="w-4 h-4 rounded-full" />
+                                  <span>{m.displayName} ({m.role})</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeUserFromProject(proj.id, m.id)}
+                                    className="text-slate-500 hover:text-rose-400 ml-1"
+                                  >
+                                    <UserMinus className="w-3 h-3" />
+                                  </button>
+                                </span>
                               ))}
-                            </select>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+
+                          {/* Add Unassigned Members Dropdown */}
+                          {unassignedMembers.length > 0 && (
+                            <div className="pt-2 border-t border-slate-900 flex items-center space-x-2">
+                              <select
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    assignUserToProject(proj.id, e.target.value);
+                                    e.target.value = '';
+                                  }
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none"
+                              >
+                                <option value="">+ Assign Team Member to {proj.name}...</option>
+                                {unassignedMembers.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.displayName} ({u.role})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}

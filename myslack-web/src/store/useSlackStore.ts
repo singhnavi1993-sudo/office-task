@@ -48,6 +48,7 @@ interface SlackStore {
   activeProjectId: string | null;
   setActiveProjectId: (id: string | null) => void;
   createProject: (name: string, description: string, assignedUserIds: string[]) => void;
+  deleteProject: (projectId: string) => void;
   assignUserToProject: (projectId: string, userId: string) => void;
   removeUserFromProject: (projectId: string, userId: string) => void;
 
@@ -398,6 +399,13 @@ export const useSlackStore = create<SlackStore>((set, get) => {
 
       const channelName = `${name.toLowerCase().replace(/\s+/g, '-')}-general`;
       get().createChannel(channelName, 'public', `Official channel for project ${name}`, newProject.id);
+    },
+
+    deleteProject: (projectId) => {
+      const state = get();
+      const updatedProjects = state.projects.filter((p) => p.id !== projectId);
+      set({ projects: updatedProjects });
+      saveState({ projects: updatedProjects });
     },
 
     assignUserToProject: (projectId, userId) => {

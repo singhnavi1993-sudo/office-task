@@ -48,24 +48,7 @@ export const INITIAL_WORKSPACES: Workspace[] = [
   },
 ];
 
-export const INITIAL_PROJECTS: ProjectItem[] = [
-  {
-    id: 'proj-1',
-    name: 'Core Software Platform',
-    description: 'Main product engineering & feature development workspace',
-    createdById: 'usr-dev-1',
-    assignedUserIds: [],
-    createdAt: new Date().toLocaleDateString(),
-  },
-  {
-    id: 'proj-2',
-    name: 'Client Project Alpha',
-    description: 'Custom client deliverables, design system & integration tasks',
-    createdById: 'usr-dev-1',
-    assignedUserIds: [],
-    createdAt: new Date().toLocaleDateString(),
-  },
-];
+export const INITIAL_PROJECTS: ProjectItem[] = [];
 
 export const INITIAL_CHANNELS: Channel[] = [
   {

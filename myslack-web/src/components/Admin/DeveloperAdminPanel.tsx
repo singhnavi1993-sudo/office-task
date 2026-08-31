@@ -21,6 +21,7 @@ import {
   Building,
   Edit,
   Trash2,
+  RefreshCw,
 } from 'lucide-react';
 import type { UserRole, UserPermissions } from '../../types';
 
@@ -31,12 +32,14 @@ export const DeveloperAdminPanel: React.FC = () => {
     users,
     approveUser,
     rejectUser,
+    deleteUser,
     updateUserRole,
     updateUserPermissions,
     updateRoleCategoryPermissions,
     projects,
     createProject,
     deleteProject,
+    clearAllProjects,
     assignUserToProject,
     removeUserFromProject,
     securityAlerts,
@@ -126,7 +129,7 @@ export const DeveloperAdminPanel: React.FC = () => {
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Rename company, delegate authorities, confirm signups & manage team projects
+                Rename company, delete user profiles, delegate authorities & manage team projects
               </p>
             </div>
           </div>
@@ -349,7 +352,7 @@ export const DeveloperAdminPanel: React.FC = () => {
                           className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-xs font-bold flex items-center space-x-1 transition-all"
                         >
                           <Edit className="w-3.5 h-3.5" />
-                          <span>Rename</span>
+                          <span>Rename Company</span>
                         </button>
                       </div>
 
@@ -547,7 +550,19 @@ export const DeveloperAdminPanel: React.FC = () => {
                     <Briefcase className="w-4 h-4" />
                     <span>Recent Team Projects (Displaying {recentProjects.length})</span>
                   </h4>
-                  <span className="text-[11px] text-slate-400 font-mono">Total Projects: {projects.length}</span>
+                  {projects.length > 0 && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Are you sure you want to clear all cached projects?')) {
+                          clearAllProjects();
+                        }
+                      }}
+                      className="px-3 py-1 rounded-xl bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center space-x-1 transition-all"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Clear All Projects</span>
+                    </button>
+                  )}
                 </div>
 
                 {recentProjects.length === 0 ? (
@@ -646,9 +661,9 @@ export const DeveloperAdminPanel: React.FC = () => {
           {activeTab === 'users' && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-sm font-bold text-white">Manage All Accounts & Individual User Authorities</h3>
+                <h3 className="text-sm font-bold text-white">Manage All Accounts & Delete User Profiles</h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Change role categories or click **"Edit Custom Authorities"** to toggle specific permissions for any individual user.
+                  Developer can change role categories, edit individual custom authorities, or **Delete User Profiles** (Owners, Managers, Employees).
                 </p>
               </div>
 
@@ -703,6 +718,20 @@ export const DeveloperAdminPanel: React.FC = () => {
                             <option value="manager">Manager</option>
                             <option value="employee">Employee</option>
                           </select>
+
+                          {/* Delete User Profile Button */}
+                          <button
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete profile for ${usr.displayName}?`)) {
+                                deleteUser(usr.id);
+                              }
+                            }}
+                            title="Delete Profile"
+                            className="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/40 text-xs font-bold flex items-center space-x-1.5 transition-all"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete Profile</span>
+                          </button>
                         </div>
                       </div>
 

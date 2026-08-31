@@ -39,6 +39,7 @@ interface SlackStore {
   // Developer & Admin Authority Actions
   approveUser: (userId: string, assignedRole: UserRole) => void;
   rejectUser: (userId: string) => void;
+  deleteUser: (userId: string) => void;
   updateUserRole: (userId: string, newRole: UserRole, passcode?: string) => { success: boolean; error?: string };
   updateUserPermissions: (userId: string, permissions: Partial<UserPermissions>) => void;
   updateRoleCategoryPermissions: (role: UserRole, permissions: Partial<UserPermissions>) => void;
@@ -49,6 +50,7 @@ interface SlackStore {
   setActiveProjectId: (id: string | null) => void;
   createProject: (name: string, description: string, assignedUserIds: string[]) => void;
   deleteProject: (projectId: string) => void;
+  clearAllProjects: () => void;
   assignUserToProject: (projectId: string, userId: string) => void;
   removeUserFromProject: (projectId: string, userId: string) => void;
 
@@ -320,6 +322,17 @@ export const useSlackStore = create<SlackStore>((set, get) => {
       saveState({ users: updatedUsers });
     },
 
+    deleteUser: (userId) => {
+      const state = get();
+      const updatedUsers = state.users.filter((u) => u.id !== userId);
+      let updatedCurrent = state.currentUser;
+      if (state.currentUser && state.currentUser.id === userId) {
+        updatedCurrent = null;
+      }
+      set({ users: updatedUsers, currentUser: updatedCurrent, isAuthenticated: updatedCurrent ? state.isAuthenticated : false });
+      saveState({ users: updatedUsers, currentUser: updatedCurrent, isAuthenticated: updatedCurrent ? state.isAuthenticated : false });
+    },
+
     updateUserRole: (userId, newRole, passcode) => {
       const state = get();
       if (newRole === 'developer' && passcode !== DEVELOPER_PASSCODE) {
@@ -406,6 +419,11 @@ export const useSlackStore = create<SlackStore>((set, get) => {
       const updatedProjects = state.projects.filter((p) => p.id !== projectId);
       set({ projects: updatedProjects });
       saveState({ projects: updatedProjects });
+    },
+
+    clearAllProjects: () => {
+      set({ projects: [] });
+      saveState({ projects: [] });
     },
 
     assignUserToProject: (projectId, userId) => {

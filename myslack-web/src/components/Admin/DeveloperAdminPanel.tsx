@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSlackStore } from '../../store/useSlackStore';
+import { DEFAULT_PERMISSIONS } from '../../mock/mockData';
 import {
   Zap,
   CheckCircle,
@@ -9,15 +10,14 @@ import {
   Sliders,
   Users,
   X,
-  Lock,
-  Unlock,
   FolderPlus,
   Briefcase,
   PlusCircle,
   UserMinus,
-  Hash,
   AlertTriangle,
   Globe,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { UserRole, UserPermissions } from '../../types';
 
@@ -29,25 +29,22 @@ export const DeveloperAdminPanel: React.FC = () => {
     approveUser,
     rejectUser,
     updateUserRole,
+    updateUserPermissions,
     updateRoleCategoryPermissions,
     projects,
     createProject,
     assignUserToProject,
     removeUserFromProject,
-    createChannel,
     securityAlerts,
   } = useSlackStore();
 
   const [activeTab, setActiveTab] = useState<'pending' | 'authority' | 'projects' | 'users' | 'security'>('pending');
+  const [expandedUserPermissionsId, setExpandedUserPermissionsId] = useState<string | null>(null);
 
   // New Project Form state
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [selectedMembersForProject, setSelectedMembersForProject] = useState<string[]>([]);
-
-  // New Channel Form state inside Project
-  const [newChannelName, setNewChannelName] = useState('');
-  const [selectedProjectIdForChannel, setSelectedProjectIdForChannel] = useState('');
 
   if (!isDevAdminPanelOpen) return null;
 
@@ -58,6 +55,10 @@ export const DeveloperAdminPanel: React.FC = () => {
     updateRoleCategoryPermissions(roleCategory, { [key]: !currentValue });
   };
 
+  const handleToggleIndividualUserPermission = (userId: string, currentPerms: UserPermissions, key: keyof UserPermissions) => {
+    updateUserPermissions(userId, { [key]: !currentPerms[key] });
+  };
+
   const handleCreateProjectSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProjectName.trim()) return;
@@ -65,13 +66,6 @@ export const DeveloperAdminPanel: React.FC = () => {
     setNewProjectName('');
     setNewProjectDesc('');
     setSelectedMembersForProject([]);
-  };
-
-  const handleCreateProjectChannel = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newChannelName.trim() || !selectedProjectIdForChannel) return;
-    createChannel(newChannelName, 'public', `Project Channel for ${newChannelName}`, selectedProjectIdForChannel);
-    setNewChannelName('');
   };
 
   const authoritiesList: { key: keyof UserPermissions; label: string; desc: string }[] = [
@@ -132,6 +126,42 @@ export const DeveloperAdminPanel: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setActiveTab('authority')}
+            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
+              activeTab === 'authority'
+                ? 'border-emerald-500 text-emerald-300'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Sliders className="w-4 h-4" />
+            <span>Role Authority Matrix</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
+              activeTab === 'users'
+                ? 'border-purple-500 text-purple-300'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>All Accounts ({approvedUsers.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('projects')}
+            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
+              activeTab === 'projects'
+                ? 'border-indigo-500 text-indigo-300'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <FolderPlus className="w-4 h-4" />
+            <span>Projects & Teams</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('security')}
             className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
               activeTab === 'security'
@@ -146,42 +176,6 @@ export const DeveloperAdminPanel: React.FC = () => {
                 {securityAlerts.length}
               </span>
             )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('authority')}
-            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
-              activeTab === 'authority'
-                ? 'border-emerald-500 text-emerald-300'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            <span>Role Authority Matrix</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('projects')}
-            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
-              activeTab === 'projects'
-                ? 'border-indigo-500 text-indigo-300'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <FolderPlus className="w-4 h-4" />
-            <span>Projects & Team Member Assignments</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
-              activeTab === 'users'
-                ? 'border-purple-500 text-purple-300'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>All Accounts ({approvedUsers.length})</span>
           </button>
         </div>
 
@@ -275,70 +269,13 @@ export const DeveloperAdminPanel: React.FC = () => {
             </div>
           )}
 
-          {/* TAB: SECURITY IP ALERTS LOG */}
-          {activeTab === 'security' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-rose-300 flex items-center space-x-2">
-                  <ShieldAlert className="w-5 h-5 text-rose-400" />
-                  <span>Unauthorized Developer Mode Attempts & IP Logs</span>
-                </h3>
-                <span className="text-xs text-rose-400 font-semibold bg-rose-500/10 px-3 py-1 rounded-lg border border-rose-500/20">
-                  {securityAlerts.length} Security Incident(s)
-                </span>
-              </div>
-
-              {securityAlerts.length === 0 ? (
-                <div className="p-12 text-center rounded-2xl bg-slate-950/40 border border-slate-800 space-y-2 text-slate-400">
-                  <CheckCircle className="w-10 h-10 mx-auto text-emerald-500 opacity-60" />
-                  <p className="text-sm font-semibold text-slate-200">No security breaches detected</p>
-                  <p className="text-xs opacity-70">
-                    No unauthorized Developer Mode signup attempts or incorrect passcodes recorded.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {securityAlerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className="p-5 rounded-2xl bg-rose-950/30 border border-rose-500/40 space-y-2 text-rose-200"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2 font-bold text-sm text-rose-300">
-                          <AlertTriangle className="w-4 h-4 text-amber-400" />
-                          <span>Attempted User: {alert.displayName} ({alert.userEmail})</span>
-                        </div>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                          {alert.status}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono pt-2 border-t border-rose-500/20">
-                        <div className="flex items-center space-x-1.5">
-                          <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>IP: <strong className="text-white">{alert.ipAddress}</strong></span>
-                        </div>
-                        <div>
-                          <span>Attempted Role: <strong className="text-amber-300">{alert.attemptedRole.toUpperCase()}</strong></span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-slate-400">{alert.timestamp}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* TAB 2: ROLE AUTHORITY MATRIX */}
           {activeTab === 'authority' && (
             <div className="space-y-6">
               <div>
                 <h3 className="text-sm font-bold text-white">Global Role Category Authority Delegation</h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Developer can grant or revoke specific powers for **Owner**, **Manager**, and **Employee** roles across the entire platform.
+                  As Developer, click **Allowed** or **Denied** below to instantly change authorities for all **Owner**, **Manager**, or **Employee** accounts across the workspace!
                 </p>
               </div>
 
@@ -361,10 +298,8 @@ export const DeveloperAdminPanel: React.FC = () => {
 
                     <div className="space-y-3">
                       {authoritiesList.map((authItem) => {
-                        const roleMembers = users.filter((u) => u.role === rCategory);
-                        const isGranted = roleMembers.length > 0
-                          ? Boolean(roleMembers[0]?.permissions?.[authItem.key])
-                          : false;
+                        const currentDefault = DEFAULT_PERMISSIONS[rCategory] || {};
+                        const isGranted = Boolean(currentDefault[authItem.key]);
 
                         return (
                           <div key={authItem.key} className="p-3 rounded-xl bg-slate-900 border border-slate-850 space-y-1">
@@ -372,13 +307,13 @@ export const DeveloperAdminPanel: React.FC = () => {
                               <span className="text-xs font-bold text-slate-200">{authItem.label}</span>
                               <button
                                 onClick={() => handleToggleRoleCategoryPermission(rCategory, authItem.key, isGranted)}
-                                className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-all ${
+                                className={`px-3 py-1 rounded-lg text-xs font-black transition-all shadow-md ${
                                   isGranted
-                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/50'
+                                    : 'bg-rose-600 hover:bg-rose-500 text-white border border-rose-400/50'
                                 }`}
                               >
-                                {isGranted ? 'Allowed' : 'Denied'}
+                                {isGranted ? '✅ Allowed' : '⛔ Denied'}
                               </button>
                             </div>
                             <p className="text-[10px] text-slate-400">{authItem.desc}</p>
@@ -392,7 +327,108 @@ export const DeveloperAdminPanel: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 3: PROJECTS & TEAM MEMBER ASSIGNMENTS */}
+          {/* TAB 3: ALL ACCOUNTS & PER-USER PERMISSION OVERRIDES */}
+          {activeTab === 'users' && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-white">Manage All Accounts & Individual User Authorities</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Change role categories or click **"Edit Custom Authorities"** to toggle specific permissions for any individual user.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {users.map((usr) => {
+                  const isExpanded = expandedUserPermissionsId === usr.id;
+                  const usrPerms = usr.permissions || DEFAULT_PERMISSIONS[usr.role];
+
+                  return (
+                    <div key={usr.id} className="rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden space-y-2">
+                      <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center space-x-3">
+                          <img src={usr.avatarUrl} alt={usr.displayName} className="w-10 h-10 rounded-2xl object-cover ring-2 ring-purple-500/20" />
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <h4 className="font-bold text-white text-sm">{usr.displayName}</h4>
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                  usr.role === 'developer'
+                                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                                    : usr.role === 'owner'
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                    : usr.role === 'manager'
+                                    ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                }`}
+                              >
+                                {usr.role}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 font-mono">{usr.email}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => setExpandedUserPermissionsId(isExpanded ? null : usr.id)}
+                            className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-850 text-indigo-300 border border-indigo-500/30 text-xs font-bold flex items-center space-x-1.5 transition-all"
+                          >
+                            <Sliders className="w-3.5 h-3.5" />
+                            <span>Edit Custom Authorities</span>
+                            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          </button>
+
+                          <select
+                            value={usr.role}
+                            onChange={(e) => updateUserRole(usr.id, e.target.value as UserRole)}
+                            className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-slate-200 focus:outline-none focus:border-indigo-500"
+                          >
+                            <option value="developer">Developer</option>
+                            <option value="owner">Owner</option>
+                            <option value="manager">Manager</option>
+                            <option value="employee">Employee</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Expandable Per-User Permission Controls */}
+                      {isExpanded && (
+                        <div className="p-4 bg-slate-900/90 border-t border-slate-800 space-y-3">
+                          <p className="text-xs font-extrabold text-indigo-300 uppercase tracking-wider">
+                            Individual Permission Overrides for {usr.displayName}:
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                            {authoritiesList.map((authItem) => {
+                              const isAllowed = Boolean(usrPerms[authItem.key]);
+                              return (
+                                <div key={authItem.key} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                                  <div className="pr-2">
+                                    <p className="text-xs font-bold text-slate-200">{authItem.label}</p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleToggleIndividualUserPermission(usr.id, usrPerms, authItem.key)}
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-all ${
+                                      isAllowed
+                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                    }`}
+                                  >
+                                    {isAllowed ? 'Allowed' : 'Denied'}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: PROJECTS & TEAM MEMBER ASSIGNMENTS */}
           {activeTab === 'projects' && (
             <div className="space-y-6">
               {/* Form to create project */}
@@ -460,42 +496,6 @@ export const DeveloperAdminPanel: React.FC = () => {
                   >
                     <PlusCircle className="w-4 h-4" />
                     <span>Create Project & Assign Members</span>
-                  </button>
-                </form>
-              </div>
-
-              {/* Create Channel in Project */}
-              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
-                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                  <Hash className="w-4 h-4 text-emerald-400" />
-                  <span>Create Project Channel</span>
-                </h3>
-
-                <form onSubmit={handleCreateProjectChannel} className="flex flex-col sm:flex-row gap-3">
-                  <select
-                    value={selectedProjectIdForChannel}
-                    onChange={(e) => setSelectedProjectIdForChannel(e.target.value)}
-                    className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 focus:outline-none"
-                  >
-                    <option value="">Select Project...</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    required
-                    value={newChannelName}
-                    onChange={(e) => setNewChannelName(e.target.value)}
-                    placeholder="Channel Name (e.g. design-feedback, api-sprint)"
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                  />
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center space-x-2 transition-all"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Create Channel</span>
                   </button>
                 </form>
               </div>
@@ -575,83 +575,60 @@ export const DeveloperAdminPanel: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 4: ALL ACCOUNTS & CATEGORIES */}
-          {activeTab === 'users' && (
+          {/* TAB 5: SECURITY IP ALERTS LOG */}
+          {activeTab === 'security' && (
             <div className="space-y-4">
-              <h3 className="text-sm font-bold text-white">Manage All Accounts & Category Roles</h3>
-              <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-950/50">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-800 bg-slate-950 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-                      <th className="py-3 px-4">User</th>
-                      <th className="py-3 px-4">Email</th>
-                      <th className="py-3 px-4">Current Category Role</th>
-                      <th className="py-3 px-4">Approval Status</th>
-                      <th className="py-3 px-4 text-right">Developer Control</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {users.map((usr) => (
-                      <tr key={usr.id} className="hover:bg-slate-800/40 transition-all">
-                        <td className="py-3 px-4">
-                          <div className="flex items-center space-x-3">
-                            <img src={usr.avatarUrl} alt={usr.displayName} className="w-8 h-8 rounded-xl object-cover" />
-                            <div>
-                              <p className="font-bold text-white text-xs">{usr.displayName}</p>
-                              <p className="text-[11px] text-slate-400">@{usr.username}</p>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="py-3 px-4 text-xs font-mono text-slate-300">{usr.email}</td>
-
-                        <td className="py-3 px-4">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider ${
-                              usr.role === 'developer'
-                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                                : usr.role === 'owner'
-                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                : usr.role === 'manager'
-                                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                            }`}
-                          >
-                            {usr.role}
-                          </span>
-                        </td>
-
-                        <td className="py-3 px-4">
-                          {usr.isApproved ? (
-                            <span className="text-xs font-bold text-emerald-400 flex items-center space-x-1">
-                              <Unlock className="w-3.5 h-3.5" />
-                              <span>Confirmed</span>
-                            </span>
-                          ) : (
-                            <span className="text-xs font-bold text-amber-400 flex items-center space-x-1">
-                              <Lock className="w-3.5 h-3.5" />
-                              <span>Pending</span>
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="py-3 px-4 text-right">
-                          <select
-                            value={usr.role}
-                            onChange={(e) => updateUserRole(usr.id, e.target.value as UserRole)}
-                            className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs font-bold text-slate-200 focus:outline-none focus:border-indigo-500"
-                          >
-                            <option value="developer">Developer</option>
-                            <option value="owner">Owner</option>
-                            <option value="manager">Manager</option>
-                            <option value="employee">Employee</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-rose-300 flex items-center space-x-2">
+                  <ShieldAlert className="w-5 h-5 text-rose-400" />
+                  <span>Unauthorized Developer Mode Attempts & IP Logs</span>
+                </h3>
+                <span className="text-xs text-rose-400 font-semibold bg-rose-500/10 px-3 py-1 rounded-lg border border-rose-500/20">
+                  {securityAlerts.length} Security Incident(s)
+                </span>
               </div>
+
+              {securityAlerts.length === 0 ? (
+                <div className="p-12 text-center rounded-2xl bg-slate-950/40 border border-slate-800 space-y-2 text-slate-400">
+                  <CheckCircle className="w-10 h-10 mx-auto text-emerald-500 opacity-60" />
+                  <p className="text-sm font-semibold text-slate-200">No security breaches detected</p>
+                  <p className="text-xs opacity-70">
+                    No unauthorized Developer Mode signup attempts or incorrect passcodes recorded.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {securityAlerts.map((alert) => (
+                    <div
+                      key={alert.id}
+                      className="p-5 rounded-2xl bg-rose-950/30 border border-rose-500/40 space-y-2 text-rose-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 font-bold text-sm text-rose-300">
+                          <AlertTriangle className="w-4 h-4 text-amber-400" />
+                          <span>Attempted User: {alert.displayName} ({alert.userEmail})</span>
+                        </div>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                          {alert.status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono pt-2 border-t border-rose-500/20">
+                        <div className="flex items-center space-x-1.5">
+                          <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>IP: <strong className="text-white">{alert.ipAddress}</strong></span>
+                        </div>
+                        <div>
+                          <span>Attempted Role: <strong className="text-amber-300">{alert.attemptedRole.toUpperCase()}</strong></span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-slate-400">{alert.timestamp}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

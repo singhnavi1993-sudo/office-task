@@ -7,6 +7,7 @@ export interface UserPermissions {
   canManageChannels: boolean;
   canManageRoles: boolean;
   canApproveUsers: boolean;
+  canCreateWorkspaces: boolean;
 }
 
 export interface SecurityAlert {

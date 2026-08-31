@@ -18,6 +18,8 @@ import {
   Globe,
   ChevronDown,
   ChevronUp,
+  Building,
+  Edit,
 } from 'lucide-react';
 import type { UserRole, UserPermissions } from '../../types';
 
@@ -36,10 +38,20 @@ export const DeveloperAdminPanel: React.FC = () => {
     assignUserToProject,
     removeUserFromProject,
     securityAlerts,
+    workspaces,
+    renameWorkspace,
+    createWorkspace,
   } = useSlackStore();
 
-  const [activeTab, setActiveTab] = useState<'pending' | 'authority' | 'projects' | 'users' | 'security'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'authority' | 'companies' | 'projects' | 'users' | 'security'>('pending');
   const [expandedUserPermissionsId, setExpandedUserPermissionsId] = useState<string | null>(null);
+
+  // Rename Workspace state
+  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
+  const [workspaceRenameInput, setWorkspaceRenameInput] = useState('');
+
+  // Create Workspace state
+  const [newCompanyNameInput, setNewCompanyNameInput] = useState('');
 
   // New Project Form state
   const [newProjectName, setNewProjectName] = useState('');
@@ -50,6 +62,9 @@ export const DeveloperAdminPanel: React.FC = () => {
 
   const pendingUsers = users.filter((u) => !u.isApproved);
   const approvedUsers = users.filter((u) => u.isApproved);
+
+  // Top 5 Most Recent Team Projects (sorted descending by ID / creation)
+  const recentProjects = [...projects].slice(0, 5);
 
   const handleToggleRoleCategoryPermission = (roleCategory: UserRole, key: keyof UserPermissions, currentValue: boolean) => {
     updateRoleCategoryPermissions(roleCategory, { [key]: !currentValue });
@@ -68,12 +83,28 @@ export const DeveloperAdminPanel: React.FC = () => {
     setSelectedMembersForProject([]);
   };
 
+  const handleRenameWorkspaceSubmit = (e: React.FormEvent, wsId: string) => {
+    e.preventDefault();
+    if (!workspaceRenameInput.trim()) return;
+    renameWorkspace(wsId, workspaceRenameInput.trim());
+    setEditingWorkspaceId(null);
+    setWorkspaceRenameInput('');
+  };
+
+  const handleCreateNewWorkspaceSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCompanyNameInput.trim()) return;
+    createWorkspace(newCompanyNameInput.trim());
+    setNewCompanyNameInput('');
+  };
+
   const authoritiesList: { key: keyof UserPermissions; label: string; desc: string }[] = [
     { key: 'canAssignJobs', label: 'Can Assign Jobs & Tasks', desc: 'Allows assigning work orders to team members' },
     { key: 'canViewActivityLogs', label: 'Can View Employee Software & Time Logs', desc: 'Allows viewing live active software and online duration' },
     { key: 'canManageChannels', label: 'Can Create & Manage Channels', desc: 'Allows creating public and private team rooms' },
     { key: 'canManageRoles', label: 'Can Delegate Authority to Lower Roles', desc: 'Allows promoting/demoting subordinate member roles' },
     { key: 'canApproveUsers', label: 'Can Confirm New Registration Signups', desc: 'Allows confirming pending registration signups into workspace' },
+    { key: 'canCreateWorkspaces', label: 'Can Create & Manage Companies/Workspaces', desc: 'Allows creating additional company workspaces' },
   ];
 
   return (
@@ -93,7 +124,7 @@ export const DeveloperAdminPanel: React.FC = () => {
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Grant role authorities, confirm signups, manage projects & monitor security IP alerts
+                Rename company, delegate authorities, confirm signups & view top 5 recent team projects
               </p>
             </div>
           </div>
@@ -126,6 +157,18 @@ export const DeveloperAdminPanel: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setActiveTab('companies')}
+            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
+              activeTab === 'companies'
+                ? 'border-indigo-500 text-indigo-300'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Building className="w-4 h-4" />
+            <span>Company Name & Workspaces</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('authority')}
             className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
               activeTab === 'authority'
@@ -138,6 +181,18 @@ export const DeveloperAdminPanel: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setActiveTab('projects')}
+            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
+              activeTab === 'projects'
+                ? 'border-cyan-500 text-cyan-300'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <FolderPlus className="w-4 h-4" />
+            <span>Recent Team Projects (Top 5)</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('users')}
             className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
               activeTab === 'users'
@@ -147,18 +202,6 @@ export const DeveloperAdminPanel: React.FC = () => {
           >
             <Users className="w-4 h-4" />
             <span>All Accounts ({approvedUsers.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('projects')}
-            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center space-x-2 transition-all flex-shrink-0 ${
-              activeTab === 'projects'
-                ? 'border-indigo-500 text-indigo-300'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <FolderPlus className="w-4 h-4" />
-            <span>Projects & Teams</span>
           </button>
 
           <button
@@ -269,13 +312,109 @@ export const DeveloperAdminPanel: React.FC = () => {
             </div>
           )}
 
+          {/* TAB: COMPANY NAME & WORKSPACE MANAGEMENT */}
+          {activeTab === 'companies' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <Building className="w-4 h-4 text-indigo-400" />
+                  <span>Company Name & Workspace Management (Developer Control Only)</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Developer can rename the primary workspace company name (e.g. change "Enterprise Workspace" to your company name) and create new company workspaces.
+                </p>
+              </div>
+
+              {/* Company Rename Section */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Active Company Workspaces</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {workspaces.map((ws) => (
+                    <div key={ws.id} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <img src={ws.iconUrl} alt={ws.name} className="w-9 h-9 rounded-xl object-cover" />
+                          <div>
+                            <h5 className="font-extrabold text-white text-base">{ws.name}</h5>
+                            <p className="text-[11px] text-slate-500 font-mono">slug: {ws.slug}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingWorkspaceId(ws.id);
+                            setWorkspaceRenameInput(ws.name);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-xs font-bold flex items-center space-x-1 transition-all"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Rename</span>
+                        </button>
+                      </div>
+
+                      {editingWorkspaceId === ws.id && (
+                        <form onSubmit={(e) => handleRenameWorkspaceSubmit(e, ws.id)} className="flex gap-2 pt-2 border-t border-slate-900">
+                          <input
+                            type="text"
+                            required
+                            value={workspaceRenameInput}
+                            onChange={(e) => setWorkspaceRenameInput(e.target.value)}
+                            placeholder="Enter New Company Name"
+                            className="flex-1 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                          />
+                          <button
+                            type="submit"
+                            className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs"
+                          >
+                            Save Name
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingWorkspaceId(null)}
+                            className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-400 text-xs font-bold"
+                          >
+                            Cancel
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Create New Company Form */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <h4 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <PlusCircle className="w-4 h-4 text-emerald-400" />
+                  <span>Create Additional Company Workspace</span>
+                </h4>
+                <form onSubmit={handleCreateNewWorkspaceSubmit} className="flex gap-3">
+                  <input
+                    type="text"
+                    required
+                    value={newCompanyNameInput}
+                    onChange={(e) => setNewCompanyNameInput(e.target.value)}
+                    placeholder="Enter Additional Company Name (e.g. Acme Holdings, Global Ops)"
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center space-x-2 transition-all shadow-md shadow-emerald-600/20"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Create Company Workspace</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
           {/* TAB 2: ROLE AUTHORITY MATRIX */}
           {activeTab === 'authority' && (
             <div className="space-y-6">
               <div>
                 <h3 className="text-sm font-bold text-white">Global Role Category Authority Delegation</h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  As Developer, click **Allowed** or **Denied** below to instantly change authorities for all **Owner**, **Manager**, or **Employee** accounts across the workspace!
+                  As Developer, click **Allowed** or **Denied** below to grant or revoke specific powers including **Creating More Companies/Workspaces** for **Owner**, **Manager**, and **Employee** roles!
                 </p>
               </div>
 
@@ -327,7 +466,161 @@ export const DeveloperAdminPanel: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 3: ALL ACCOUNTS & PER-USER PERMISSION OVERRIDES */}
+          {/* TAB 3: RECENT TEAM PROJECTS (TOP 5) */}
+          {activeTab === 'projects' && (
+            <div className="space-y-6">
+              {/* Form to create project */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <FolderPlus className="w-4 h-4 text-indigo-400" />
+                  <span>Create New Team Project & Assign Members</span>
+                </h3>
+
+                <form onSubmit={handleCreateProjectSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      required
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      placeholder="Project Name (e.g. Mobile App Core, E-Commerce Suite)"
+                      className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      value={newProjectDesc}
+                      onChange={(e) => setNewProjectDesc(e.target.value)}
+                      placeholder="Project Description / Goals"
+                      className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300 block mb-2">
+                      Assign Team Members to Project (Select Owners, Managers, Employees):
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {approvedUsers.map((u) => {
+                        const isSelected = selectedMembersForProject.includes(u.id);
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedMembersForProject(selectedMembersForProject.filter((id) => id !== u.id));
+                              } else {
+                                setSelectedMembersForProject([...selectedMembersForProject, u.id]);
+                              }
+                            }}
+                            className={`p-2 rounded-xl border text-xs text-left flex items-center space-x-2 transition-all ${
+                              isSelected
+                                ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <img src={u.avatarUrl} alt={u.displayName} className="w-5 h-5 rounded-full object-cover" />
+                            <span className="truncate flex-1 font-semibold">{u.displayName} ({u.role})</span>
+                            {isSelected && <CheckCircle className="w-4 h-4 text-emerald-400" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center space-x-2 transition-all shadow-md shadow-indigo-600/20"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Create Project & Assign Members</span>
+                  </button>
+                </form>
+              </div>
+
+              {/* Recent Team Projects (Top 5) List */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-cyan-400 flex items-center space-x-2">
+                    <Briefcase className="w-4 h-4" />
+                    <span>Recent Team Projects (Displaying Top {recentProjects.length} Recent)</span>
+                  </h4>
+                  <span className="text-[11px] text-slate-400 font-mono">Total Projects: {projects.length}</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {recentProjects.map((proj) => {
+                    const assignedMembers = approvedUsers.filter((u) => proj.assignedUserIds?.includes(u.id));
+                    const unassignedMembers = approvedUsers.filter((u) => !proj.assignedUserIds?.includes(u.id));
+
+                    return (
+                      <div key={proj.id} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-extrabold text-white text-base flex items-center space-x-2">
+                              <Briefcase className="w-4 h-4 text-indigo-400" />
+                              <span>{proj.name}</span>
+                            </h4>
+                            <span className="text-[10px] text-slate-500 font-mono">Created {proj.createdAt}</span>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-1">{proj.description}</p>
+                        </div>
+
+                        {/* Assigned Members */}
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-slate-300">
+                            Assigned Members ({assignedMembers.length}):
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {assignedMembers.map((m) => (
+                              <span
+                                key={m.id}
+                                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200"
+                              >
+                                <img src={m.avatarUrl} alt={m.displayName} className="w-4 h-4 rounded-full" />
+                                <span>{m.displayName} ({m.role})</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeUserFromProject(proj.id, m.id)}
+                                  className="text-slate-500 hover:text-rose-400 ml-1"
+                                >
+                                  <UserMinus className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Add Unassigned Members Dropdown */}
+                        {unassignedMembers.length > 0 && (
+                          <div className="pt-2 border-t border-slate-900 flex items-center space-x-2">
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  assignUserToProject(proj.id, e.target.value);
+                                  e.target.value = '';
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none"
+                            >
+                              <option value="">+ Assign Team Member to {proj.name}...</option>
+                              {unassignedMembers.map((u) => (
+                                <option key={u.id} value={u.id}>
+                                  {u.displayName} ({u.role})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: ALL ACCOUNTS & PER-USER PERMISSION OVERRIDES */}
           {activeTab === 'users' && (
             <div className="space-y-4">
               <div>
@@ -424,153 +717,6 @@ export const DeveloperAdminPanel: React.FC = () => {
                     </div>
                   );
                 })}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: PROJECTS & TEAM MEMBER ASSIGNMENTS */}
-          {activeTab === 'projects' && (
-            <div className="space-y-6">
-              {/* Form to create project */}
-              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
-                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                  <FolderPlus className="w-4 h-4 text-indigo-400" />
-                  <span>Create New Team Project & Assign Members</span>
-                </h3>
-
-                <form onSubmit={handleCreateProjectSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      required
-                      value={newProjectName}
-                      onChange={(e) => setNewProjectName(e.target.value)}
-                      placeholder="Project Name (e.g. Mobile App Core, E-Commerce Suite)"
-                      className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                    />
-                    <input
-                      type="text"
-                      value={newProjectDesc}
-                      onChange={(e) => setNewProjectDesc(e.target.value)}
-                      placeholder="Project Description / Goals"
-                      className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-2">
-                      Assign Team Members to Project (Select Owners, Managers, Employees):
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {approvedUsers.map((u) => {
-                        const isSelected = selectedMembersForProject.includes(u.id);
-                        return (
-                          <button
-                            key={u.id}
-                            type="button"
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedMembersForProject(selectedMembersForProject.filter((id) => id !== u.id));
-                              } else {
-                                setSelectedMembersForProject([...selectedMembersForProject, u.id]);
-                              }
-                            }}
-                            className={`p-2 rounded-xl border text-xs text-left flex items-center space-x-2 transition-all ${
-                              isSelected
-                                ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200'
-                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                            }`}
-                          >
-                            <img src={u.avatarUrl} alt={u.displayName} className="w-5 h-5 rounded-full object-cover" />
-                            <span className="truncate flex-1 font-semibold">{u.displayName} ({u.role})</span>
-                            {isSelected && <CheckCircle className="w-4 h-4 text-emerald-400" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center space-x-2 transition-all shadow-md shadow-indigo-600/20"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Create Project & Assign Members</span>
-                  </button>
-                </form>
-              </div>
-
-              {/* Active Projects List */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Active Team Projects</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {projects.map((proj) => {
-                    const assignedMembers = approvedUsers.filter((u) => proj.assignedUserIds?.includes(u.id));
-                    const unassignedMembers = approvedUsers.filter((u) => !proj.assignedUserIds?.includes(u.id));
-
-                    return (
-                      <div key={proj.id} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-extrabold text-white text-base flex items-center space-x-2">
-                              <Briefcase className="w-4 h-4 text-indigo-400" />
-                              <span>{proj.name}</span>
-                            </h4>
-                            <span className="text-[10px] text-slate-500 font-mono">Created {proj.createdAt}</span>
-                          </div>
-                          <p className="text-xs text-slate-400 mt-1">{proj.description}</p>
-                        </div>
-
-                        {/* Assigned Members */}
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-slate-300">
-                            Assigned Members ({assignedMembers.length}):
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {assignedMembers.map((m) => (
-                              <span
-                                key={m.id}
-                                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200"
-                              >
-                                <img src={m.avatarUrl} alt={m.displayName} className="w-4 h-4 rounded-full" />
-                                <span>{m.displayName} ({m.role})</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeUserFromProject(proj.id, m.id)}
-                                  className="text-slate-500 hover:text-rose-400 ml-1"
-                                >
-                                  <UserMinus className="w-3 h-3" />
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Add Unassigned Members Dropdown */}
-                        {unassignedMembers.length > 0 && (
-                          <div className="pt-2 border-t border-slate-900 flex items-center space-x-2">
-                            <select
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  assignUserToProject(proj.id, e.target.value);
-                                  e.target.value = '';
-                                }
-                              }}
-                              className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none"
-                            >
-                              <option value="">+ Assign Team Member to {proj.name}...</option>
-                              {unassignedMembers.map((u) => (
-                                <option key={u.id} value={u.id}>
-                                  {u.displayName} ({u.role})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
             </div>
           )}

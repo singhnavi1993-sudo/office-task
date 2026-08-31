@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { User, Workspace, Channel, Message, SlackTheme, HuddleState, UserRole, JobItem, UserPermissions, ProjectItem, SecurityAlert } from '../types';
 import { INITIAL_USERS, INITIAL_WORKSPACES, INITIAL_CHANNELS, INITIAL_MESSAGES, INITIAL_PROJECTS, DEFAULT_PERMISSIONS } from '../mock/mockData';
 
-const LOCAL_STORAGE_KEY = 'myslack_app_v6_security';
+const LOCAL_STORAGE_KEY = 'myslack_app_v7_workspace';
 export const DEVELOPER_PASSCODE = 'DEV-SECRET-2026';
 
 const loadStoredState = () => {
@@ -51,10 +51,12 @@ interface SlackStore {
   assignUserToProject: (projectId: string, userId: string) => void;
   removeUserFromProject: (projectId: string, userId: string) => void;
 
-  // Workspaces & Channels
+  // Workspaces / Companies
   workspaces: Workspace[];
   activeWorkspaceId: string;
   setActiveWorkspace: (id: string) => void;
+  renameWorkspace: (workspaceId: string, newName: string) => void;
+  createWorkspace: (name: string) => void;
 
   channels: Channel[];
   activeChannelId: string;
@@ -117,6 +119,7 @@ export const useSlackStore = create<SlackStore>((set, get) => {
         messages: newState.messages || get().messages,
         jobs: newState.jobs || get().jobs,
         projects: newState.projects || get().projects,
+        workspaces: newState.workspaces || get().workspaces,
         securityAlerts: newState.securityAlerts || get().securityAlerts,
         isAuthenticated: newState.isAuthenticated !== undefined ? newState.isAuthenticated : get().isAuthenticated,
       };
@@ -132,6 +135,7 @@ export const useSlackStore = create<SlackStore>((set, get) => {
   const initialMessages = savedState?.messages || INITIAL_MESSAGES;
   const initialJobs: JobItem[] = savedState?.jobs || [];
   const initialProjects: ProjectItem[] = savedState?.projects || INITIAL_PROJECTS;
+  const initialWorkspaces: Workspace[] = savedState?.workspaces || INITIAL_WORKSPACES;
   const initialSecurityAlerts: SecurityAlert[] = savedState?.securityAlerts || [];
 
   return {
@@ -154,7 +158,6 @@ export const useSlackStore = create<SlackStore>((set, get) => {
       set({ securityAlerts: updatedAlerts });
       saveState({ securityAlerts: updatedAlerts });
 
-      // Post Security Alert in Developer Admin Channel
       const devChannel = state.channels.find((c) => c.name === 'developer-admin-room') || state.channels[0];
       const securityMsg: Message = {
         id: `msg-sec-${Date.now()}`,
@@ -201,13 +204,10 @@ export const useSlackStore = create<SlackStore>((set, get) => {
       const state = get();
       const isDeveloperRole = requestedRole === 'developer';
 
-      // If user selected Developer role, verify Passcode!
       if (isDeveloperRole) {
         if (!devPasscode || devPasscode !== DEVELOPER_PASSCODE) {
-          // SECURITY VIOLATION! Record IP & alert Developer Admin
           get().recordSecurityBreach(email, displayName, requestedRole, clientIp);
 
-          // Force demote registration to Employee (Pending Approval)
           const demotedUser: User = {
             id: `usr-${Date.now()}`,
             username: displayName.toLowerCase().replace(/\s+/g, '_'),
@@ -242,7 +242,7 @@ export const useSlackStore = create<SlackStore>((set, get) => {
         email,
         avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`,
         role: requestedRole,
-        isApproved: isDeveloperRole, // Developer accounts with correct passcode are auto-approved
+        isApproved: isDeveloperRole,
         permissions: { ...DEFAULT_PERMISSIONS[requestedRole] },
         currentTask: currentTask || 'Active in workspace',
         onlineSince: new Date().toISOString(),
@@ -295,7 +295,6 @@ export const useSlackStore = create<SlackStore>((set, get) => {
       saveState({ currentUser: updatedUser, users: updatedUsers });
     },
 
-    // Developer Authority Actions
     approveUser: (userId, assignedRole) => {
       const state = get();
       const updatedUsers = state.users.map((u) =>
@@ -350,13 +349,13 @@ export const useSlackStore = create<SlackStore>((set, get) => {
         u.id === userId
           ? {
               ...u,
-              permissions: { ...u.permissions, ...partialPermissions },
+              permissions: { ...(u.permissions || DEFAULT_PERMISSIONS[u.role]), ...partialPermissions },
             }
           : u
       );
       let updatedCurrent = state.currentUser;
       if (state.currentUser && state.currentUser.id === userId) {
-        updatedCurrent = { ...state.currentUser, permissions: { ...state.currentUser.permissions, ...partialPermissions } };
+        updatedCurrent = { ...state.currentUser, permissions: { ...(state.currentUser.permissions || DEFAULT_PERMISSIONS[state.currentUser.role]), ...partialPermissions } };
       }
       set({ users: updatedUsers, currentUser: updatedCurrent });
       saveState({ users: updatedUsers, currentUser: updatedCurrent });
@@ -368,18 +367,17 @@ export const useSlackStore = create<SlackStore>((set, get) => {
 
       const updatedUsers = state.users.map((u) =>
         u.role === roleCategory
-          ? { ...u, permissions: { ...u.permissions, ...partialPermissions } }
+          ? { ...u, permissions: { ...(u.permissions || DEFAULT_PERMISSIONS[roleCategory]), ...partialPermissions } }
           : u
       );
       let updatedCurrent = state.currentUser;
       if (state.currentUser && state.currentUser.role === roleCategory) {
-        updatedCurrent = { ...state.currentUser, permissions: { ...state.currentUser.permissions, ...partialPermissions } };
+        updatedCurrent = { ...state.currentUser, permissions: { ...(state.currentUser.permissions || DEFAULT_PERMISSIONS[roleCategory]), ...partialPermissions } };
       }
       set({ users: updatedUsers, currentUser: updatedCurrent });
       saveState({ users: updatedUsers, currentUser: updatedCurrent });
     },
 
-    // Projects & Team Assignments
     projects: initialProjects,
     activeProjectId: null,
     setActiveProjectId: (id) => set({ activeProjectId: id }),
@@ -424,9 +422,36 @@ export const useSlackStore = create<SlackStore>((set, get) => {
       saveState({ projects: updatedProjects });
     },
 
-    workspaces: INITIAL_WORKSPACES,
-    activeWorkspaceId: INITIAL_WORKSPACES[0].id,
+    // Workspaces / Companies
+    workspaces: initialWorkspaces,
+    activeWorkspaceId: initialWorkspaces[0]?.id || 'ws-1',
     setActiveWorkspace: (id) => set({ activeWorkspaceId: id }),
+
+    renameWorkspace: (workspaceId, newName) => {
+      const state = get();
+      const updatedWorkspaces = state.workspaces.map((ws) =>
+        ws.id === workspaceId ? { ...ws, name: newName, slug: newName.toLowerCase().replace(/\s+/g, '-') } : ws
+      );
+      set({ workspaces: updatedWorkspaces });
+      saveState({ workspaces: updatedWorkspaces });
+    },
+
+    createWorkspace: (name) => {
+      const state = get();
+      const newWorkspace: Workspace = {
+        id: `ws-${Date.now()}`,
+        name,
+        slug: name.toLowerCase().replace(/\s+/g, '-'),
+        iconUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=128&q=80',
+        unreadCount: 0,
+      };
+      const updatedWorkspaces = [...state.workspaces, newWorkspace];
+      set({ workspaces: updatedWorkspaces, activeWorkspaceId: newWorkspace.id });
+      saveState({ workspaces: updatedWorkspaces });
+
+      // Create default general channel for new company
+      get().createChannel('general', 'public', `General channel for ${name}`);
+    },
 
     channels: initialChannels,
     activeChannelId: initialChannels[0].id,
@@ -633,6 +658,7 @@ export const useSlackStore = create<SlackStore>((set, get) => {
         messages: INITIAL_MESSAGES,
         jobs: [],
         projects: INITIAL_PROJECTS,
+        workspaces: INITIAL_WORKSPACES,
         securityAlerts: [],
         isAuthenticated: false,
       });

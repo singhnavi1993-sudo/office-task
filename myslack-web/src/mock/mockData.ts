@@ -7,6 +7,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     canManageChannels: true,
     canManageRoles: true,
     canApproveUsers: true,
+    canCreateWorkspaces: true,
   },
   owner: {
     canAssignJobs: true,
@@ -14,6 +15,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     canManageChannels: true,
     canManageRoles: true,
     canApproveUsers: false,
+    canCreateWorkspaces: false,
   },
   manager: {
     canAssignJobs: true,
@@ -21,6 +23,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     canManageChannels: false,
     canManageRoles: false,
     canApproveUsers: false,
+    canCreateWorkspaces: false,
   },
   employee: {
     canAssignJobs: false,
@@ -28,6 +31,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     canManageChannels: false,
     canManageRoles: false,
     canApproveUsers: false,
+    canCreateWorkspaces: false,
   },
 };
 

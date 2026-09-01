@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { User, Workspace, Channel, Message, SlackTheme, HuddleState, UserRole, JobItem, UserPermissions, ProjectItem, SecurityAlert } from '../types';
 import { INITIAL_USERS, INITIAL_WORKSPACES, INITIAL_CHANNELS, INITIAL_MESSAGES, INITIAL_PROJECTS, DEFAULT_PERMISSIONS } from '../mock/mockData';
+import { apiService } from '../services/api';
 
 const LOCAL_STORAGE_KEY = 'myslack_app_v7_workspace';
 export const DEVELOPER_PASSCODE = 'DEV-SECRET-2026';
@@ -22,6 +23,7 @@ const savedState = loadStoredState();
 interface SlackStore {
   // Authentication & Session
   isAuthenticated: boolean;
+  syncUsersWithCentralDb: () => Promise<void>;
   login: (email: string, password?: string) => { success: boolean; message?: string };
   register: (displayName: string, email: string, requestedRole: UserRole, currentTask?: string, devPasscode?: string, clientIp?: string) => { pendingApproval: boolean; error?: string };
   logout: () => void;
@@ -176,6 +178,46 @@ export const useSlackStore = create<SlackStore>((set, get) => {
       saveState({ messages: get().messages });
     },
 
+    syncUsersWithCentralDb: async () => {
+      try {
+        const centralUsers = await apiService.fetchCentralUsers();
+        if (Array.isArray(centralUsers) && centralUsers.length > 0) {
+          const state = get();
+          const userMap = new Map<string, User>();
+          state.users.forEach((u) => userMap.set(u.email.toLowerCase(), u));
+
+          centralUsers.forEach((cu) => {
+            const emailKey = cu.email.toLowerCase();
+            const existing = userMap.get(emailKey);
+            const role = (cu.role || 'employee') as UserRole;
+            const mappedUser: User = {
+              id: cu.id || existing?.id || `usr-${Date.now()}`,
+              username: cu.username || cu.displayName?.toLowerCase().replace(/\s+/g, '_') || emailKey.split('@')[0],
+              displayName: cu.displayName || emailKey.split('@')[0],
+              email: cu.email,
+              avatarUrl: cu.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cu.displayName || emailKey)}`,
+              role: role,
+              isApproved: cu.isApproved !== undefined ? cu.isApproved : true,
+              permissions: { ...DEFAULT_PERMISSIONS[role] },
+              currentTask: cu.customTask || cu.currentTask || 'Active in workspace',
+              onlineSince: cu.onlineSince || new Date().toISOString(),
+              joinedAt: cu.createdAt || new Date().toISOString(),
+              status: (cu.status || 'active') as User['status'],
+              customStatus: cu.customStatus || (role === 'developer' ? '⚡ Lead Developer Admin' : '🎉 Registered Account'),
+              lastKnownIp: cu.registeredIp || cu.lastKnownIp || 'Unknown IP',
+            };
+            userMap.set(emailKey, { ...existing, ...mappedUser });
+          });
+
+          const mergedUsers = Array.from(userMap.values());
+          set({ users: mergedUsers });
+          saveState({ users: mergedUsers });
+        }
+      } catch (err) {
+        console.warn('Central database user sync offline or unreachable:', err);
+      }
+    },
+
     login: (email) => {
       const state = get();
       const foundUser = state.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
@@ -206,6 +248,18 @@ export const useSlackStore = create<SlackStore>((set, get) => {
     register: (displayName, email, requestedRole, currentTask, devPasscode, clientIp = 'Unknown IP') => {
       const state = get();
       const isDeveloperRole = requestedRole === 'developer';
+
+      // Push registration to Central Database API so mobile & desktop devices sync
+      apiService
+        .registerCentralUser({
+          displayName,
+          email,
+          role: requestedRole,
+          currentTask,
+          devPasscode,
+          clientIp,
+        })
+        .catch((err) => console.warn('Central DB register push skipped or offline:', err));
 
       if (isDeveloperRole) {
         if (!devPasscode || devPasscode !== DEVELOPER_PASSCODE) {

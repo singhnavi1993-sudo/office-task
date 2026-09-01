@@ -19,9 +19,10 @@ export const AuthModal: React.FC = () => {
   const [devPasscode, setDevPasscode] = useState('');
   const [currentTask, setCurrentTask] = useState('');
 
-  // Fetch Client IP Address on component mount
+  // Fetch Client IP Address & sync central database users on component mount
   useEffect(() => {
     fetchClientIp().then((ip) => setClientIp(ip));
+    useSlackStore.getState().syncUsersWithCentralDb();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,6 +31,8 @@ export const AuthModal: React.FC = () => {
 
     if (isLoginTab) {
       if (!email.trim()) return;
+      // Sync central database users first so cross-device registered accounts are recognized!
+      await useSlackStore.getState().syncUsersWithCentralDb();
       const res = login(email, password);
       if (!res.success) {
         setErrorMessage(res.message || 'Login failed. Please check your email.');

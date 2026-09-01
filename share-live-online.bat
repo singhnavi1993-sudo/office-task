@@ -8,6 +8,7 @@ echo.
 echo 1. Starting Frontend Web Server...
 cd /d "%~dp0myslack-web"
 
+start "MySlack Central Database" cmd /k "node server.js"
 start "MySlack Dev Server" cmd /k "npm run dev -- --host"
 
 echo.

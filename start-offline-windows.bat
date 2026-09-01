@@ -27,6 +27,9 @@ if not exist "node_modules" (
 )
 
 start http://localhost:5173
+echo Starting Central Database Server (Port 5000)...
+start /b node server.js
 npm run dev -- --host 0.0.0.0
 
 pause
+
